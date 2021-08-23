@@ -572,12 +572,15 @@ int sigar_os_proc_list_get(sigar_t *sigar,
 
 static int proc_stat_read(sigar_t *sigar, sigar_pid_t pid)
 {
+    printf("\t\tproc_stat_read: start\n");
+
     char buffer[BUFSIZ], *ptr=buffer, *tmp;
     unsigned int len;
     linux_proc_stat_t *pstat = &sigar->last_proc_stat;
     int status;
 
     time_t timenow = time(NULL);
+    printf("\t\tproc_stat_read: timenow = [%lld]\n", timenow);
 
     /*
      * short-lived cache read/parse of last /proc/pid/stat
@@ -585,6 +588,7 @@ static int proc_stat_read(sigar_t *sigar, sigar_pid_t pid)
      */
     if (pstat->pid == pid) {
         if ((timenow - pstat->mtime) < SIGAR_LAST_PROC_EXPIRE) {
+            printf("\t\tproc_stat_read: end 1\n");
             return SIGAR_OK;
         }
     }
@@ -594,14 +598,19 @@ static int proc_stat_read(sigar_t *sigar, sigar_pid_t pid)
 
     status = SIGAR_PROC_FILE2STR(buffer, pid, PROC_PSTAT);
 
+    printf("\t\tproc_stat_read: proc file\n[%s]\n\n", ptr);
+
     if (status != SIGAR_OK) {
+        printf("\t\tproc_stat_read: end 2\n");
         return status;
     }
 
     if (!(ptr = strchr(ptr, '('))) {
+        printf("\t\tproc_stat_read: end 3\n");
         return EINVAL;
     }
     if (!(tmp = strrchr(++ptr, ')'))) {
+        printf("\t\tproc_stat_read: end 4\n");
         return EINVAL;
     }
     len = tmp-ptr;
@@ -668,6 +677,7 @@ static int proc_stat_read(sigar_t *sigar, sigar_pid_t pid)
 
     pstat->processor = sigar_strtoul(ptr); /* (39) */
 
+    printf("\t\tproc_stat_read: end 5\n");
     return SIGAR_OK;
 }
 
@@ -750,18 +760,23 @@ int sigar_proc_mem_get(sigar_t *sigar, sigar_pid_t pid,
 int sigar_proc_time_get(sigar_t *sigar, sigar_pid_t pid,
                         sigar_proc_time_t *proctime)
 {
+    printf("\tsigar_proc_time_get: start\n");
     int status = proc_stat_read(sigar, pid);
     linux_proc_stat_t *pstat = &sigar->last_proc_stat;
 
     if (status != SIGAR_OK) {
+        printf("\tsigar_proc_time_get: end 1\n");
         return status;
     }
 
     proctime->user = pstat->utime;
     proctime->sys  = pstat->stime;
+    printf("\tsigar_proc_time_get: pstat->utime = [%"PRIu64"]\n", pstat->utime);
+    printf("\tsigar_proc_time_get: pstat->stime = [%"PRIu64"]\n", pstat->stime);
     proctime->total = proctime->user + proctime->sys;
     proctime->start_time = pstat->start_time;
 
+    printf("\tsigar_proc_time_get: end 2\n");
     return SIGAR_OK;
 }
 

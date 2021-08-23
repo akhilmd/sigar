@@ -115,11 +115,14 @@ SIGAR_DECLARE(sigar_pid_t) sigar_pid_get(sigar_t *sigar)
 SIGAR_DECLARE(int) sigar_proc_cpu_get(sigar_t *sigar, sigar_pid_t pid,
                                       sigar_proc_cpu_t *proccpu)
 {
+    printf("sigar_proc_cpu_get: start\n");
     sigar_cache_entry_t *entry;
     sigar_proc_cpu_t *prev;
     sigar_uint64_t otime, time_now = sigar_time_now_millis();
     sigar_uint64_t time_diff, total_diff;
     int status;
+
+    printf("sigar_proc_cpu_get: time_now = [%" PRIu64 "]\n", time_now);
 
     if (!sigar->proc_cpu) {
         sigar->proc_cpu = sigar_cache_new(128);
@@ -127,9 +130,11 @@ SIGAR_DECLARE(int) sigar_proc_cpu_get(sigar_t *sigar, sigar_pid_t pid,
 
     entry = sigar_cache_get(sigar->proc_cpu, pid);
     if (entry->value) {
+        printf("sigar_proc_cpu_get: cache has entry\n");
         prev = (sigar_proc_cpu_t *)entry->value;
     }
     else {
+        printf("sigar_proc_cpu_get: alloc new entry, sz = [%d], type sz = [%d]\n", sizeof(*prev), sizeof(sigar_proc_cpu_t));
         prev = entry->value = malloc(sizeof(*prev));
         SIGAR_ZERO(prev);
     }
@@ -137,19 +142,30 @@ SIGAR_DECLARE(int) sigar_proc_cpu_get(sigar_t *sigar, sigar_pid_t pid,
     time_diff = time_now - prev->last_time;
     proccpu->last_time = time_now;
 
+    printf("sigar_proc_cpu_get: prev->last_time = [%" PRIu64 "]\n", prev->last_time);
+    printf("sigar_proc_cpu_get: time_diff = [%" PRIu64 "]\n", time_diff);
+
     if (time_diff < 1000) {
+        printf("sigar_proc_cpu_get: time_diff < 1000, returning from cache\n");
         /* we were just called within < 1 second ago. */
         memcpy(proccpu, prev, sizeof(*proccpu));
+        printf("sigar_proc_cpu_get: end 1\n");
         return SIGAR_OK;
     }
 
     otime = prev->total;
+    printf("sigar_proc_cpu_get: otime = [%" PRIu64 "]\n", otime);
 
     status =
         sigar_proc_time_get(sigar, pid,
                             (sigar_proc_time_t *)proccpu);
 
+    printf("sigar_proc_cpu_get: proccpu->total = [%" PRIu64 "]\n", proccpu->total);
+    printf("sigar_proc_cpu_get: proccpu->sys = [%" PRIu64 "]\n", proccpu->sys);
+    printf("sigar_proc_cpu_get: proccpu->user = [%" PRIu64 "]\n", proccpu->user);
+
     if (status != SIGAR_OK) {
+        printf("sigar_proc_cpu_get: end 2\n");
         return status;
     }
 
@@ -163,11 +179,15 @@ SIGAR_DECLARE(int) sigar_proc_cpu_get(sigar_t *sigar, sigar_pid_t pid,
         proccpu->percent = 0.0;
     } else {
         total_diff = proccpu->total - otime;
+        printf("sigar_proc_cpu_get: total_diff = [%" PRIu64 "]\n", total_diff);
         proccpu->percent = total_diff / (double)time_diff;
     }
 
+    printf("sigar_proc_cpu_get: proccpu->percent = [%f]\n", proccpu->percent);
+
     memcpy(prev, proccpu, sizeof(*prev));
 
+    printf("sigar_proc_cpu_get: end 3\n");
     return SIGAR_OK;
 }
 
